@@ -7,7 +7,12 @@
 
 #define ERROR(...) do { fprintf(stderr, __VA_ARGS__); return 2; } while(0)
 /* disallow loading images >32MB in size */
+#ifndef MAX_SIZE
 #define MAX_SIZE 33554432
+#endif
+#ifndef MAX_IMAGE_SIZE
+#define MAX_IMAGE_SIZE 134217728
+#endif
 
 #define SIG_PNG (*(uint32_t*)"\x89PNG")
 #define SIG_WEBP (*(uint32_t*)"RIFF")
@@ -60,6 +65,10 @@ int main(int argc, char** argv) {
 		}
 		
 		png.format = PNG_FORMAT_ARGB;
+		if(PNG_IMAGE_SIZE(png) > MAX_IMAGE_SIZE) {
+			free(buf);
+			ERROR("Image too large\n");
+		}
 		image = malloc(PNG_IMAGE_SIZE(png));
 		
 		if(!png_image_finish_read(&png, NULL, image, 0, NULL)) {
@@ -79,6 +88,10 @@ int main(int argc, char** argv) {
 		if(!webp.has_alpha) {
 			free(buf);
 			return 1;
+		}
+		if(webp.width * webp.height * 4 > MAX_IMAGE_SIZE) {
+			free(buf);
+			ERROR("Image too large\n");
 		}
 		image = WebPDecodeARGB(buf, size, &width, &height);
 	} else {
