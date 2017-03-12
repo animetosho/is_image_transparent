@@ -2,8 +2,12 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#ifndef NO_WEBP
 #include <webp/decode.h>
+#endif
+#ifndef NO_PNG
 #include <png.h>
+#endif
 
 #define ERROR(...) do { fprintf(stderr, __VA_ARGS__); return 2; } while(0)
 /* disallow loading images >32MB in size */
@@ -49,6 +53,7 @@ int main(int argc, char** argv) {
 	uint32_t sig = *(uint32_t*)buf;
 	int width, height;
 	uint8_t* image = NULL;
+#ifndef NO_PNG
 	if(sig == SIG_PNG) {
 		png_image png;
 		png.version = PNG_IMAGE_VERSION;
@@ -81,7 +86,10 @@ int main(int argc, char** argv) {
 		
 		width = png.width;
 		height = png.height;
-	} else if(sig == SIG_WEBP) {
+	} else
+#endif
+#ifndef NO_WEBP
+	if(sig == SIG_WEBP) {
 		WebPBitstreamFeatures webp;
 		if(WebPGetFeatures(buf, size, &webp) != VP8_STATUS_OK) {
 			free(buf);
@@ -96,7 +104,9 @@ int main(int argc, char** argv) {
 			ERROR("Image too large\n");
 		}
 		image = WebPDecodeARGB(buf, size, &width, &height);
-	} else {
+	} else
+#endif
+	{
 		free(buf);
 		ERROR("Invalid PNG/WEBP file\n");
 	}
