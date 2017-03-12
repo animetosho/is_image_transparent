@@ -55,7 +55,7 @@ int main(int argc, char** argv) {
 		png.opaque = NULL;
 		if(!png_image_begin_read_from_memory(&png, buf, size)) {
 			free(buf);
-			ERROR("Invalid PNG file\n");
+			ERROR("%s\n", png.message);
 		}
 		
 		if(!(png.format & PNG_FORMAT_FLAG_ALPHA)) {
@@ -71,11 +71,13 @@ int main(int argc, char** argv) {
 		}
 		image = malloc(PNG_IMAGE_SIZE(png));
 		
-		if(!png_image_finish_read(&png, NULL, image, 0, NULL)) {
-			free(image);
-			image = NULL;
-		}
+		int success = png_image_finish_read(&png, NULL, image, 0, NULL);
 		png_image_free(&png);
+		if(!success) {
+			free(image);
+			free(buf);
+			ERROR("%s\n", png.message);
+		}
 		
 		width = png.width;
 		height = png.height;
