@@ -12,28 +12,6 @@
 #define SIG_PNG (*(uint32_t*)"\x89PNG")
 #define SIG_WEBP (*(uint32_t*)"RIFF")
 
-uint8_t* decode_png(const uint8_t* buf, size_t length, int* width, int* height) {
-	png_image png;
-	png.version = PNG_IMAGE_VERSION;
-	png.opaque = NULL;
-	if(!png_image_begin_read_from_memory(&png, buf, length)) {
-		return NULL;
-	}
-	
-	png.format = PNG_FORMAT_ARGB;
-	uint8_t* image = malloc(PNG_IMAGE_SIZE(png));
-	
-	if(!png_image_finish_read(&png, NULL, image, 0, NULL)) {
-		free(image);
-		image = NULL;
-	}
-	png_image_free(&png);
-	
-	*width = png.width;
-	*height = png.height;
-	return image;
-}
-
 int main(int argc, char** argv) {
 	/* read input */
 	if(argc != 2)
@@ -63,22 +41,53 @@ int main(int argc, char** argv) {
 	
 	
 	/* Render */
-	/* TODO: consider checking image format to see if alpha is even possible, and bail early if it isn't */
 	uint32_t sig = *(uint32_t*)buf;
 	int width, height;
-	uint8_t* image;
+	uint8_t* image = NULL;
 	if(sig == SIG_PNG) {
-		image = decode_png(buf, size, &width, &height);
+		png_image png;
+		png.version = PNG_IMAGE_VERSION;
+		png.opaque = NULL;
+		if(!png_image_begin_read_from_memory(&png, buf, size)) {
+			free(buf);
+			ERROR("Invalid PNG file\n");
+		}
+		
+		if(!(png.format & PNG_FORMAT_FLAG_ALPHA)) {
+			free(buf);
+			png_image_free(&png);
+			return 1;
+		}
+		
+		png.format = PNG_FORMAT_ARGB;
+		image = malloc(PNG_IMAGE_SIZE(png));
+		
+		if(!png_image_finish_read(&png, NULL, image, 0, NULL)) {
+			free(image);
+			image = NULL;
+		}
+		png_image_free(&png);
+		
+		width = png.width;
+		height = png.height;
 	} else if(sig == SIG_WEBP) {
+		WebPBitstreamFeatures webp;
+		if(WebPGetFeatures(buf, size, &webp) != VP8_STATUS_OK) {
+			free(buf);
+			ERROR("Invalid WEBP file\n");
+		}
+		if(!webp.has_alpha) {
+			free(buf);
+			return 1;
+		}
 		image = WebPDecodeARGB(buf, size, &width, &height);
 	} else {
 		free(buf);
 		ERROR("Invalid PNG/WEBP file\n");
 	}
-	if(!image) {
-		free(buf);
+	free(buf);
+	if(!image)
 		ERROR("Failed to render supplied file\n");
-	}
 	
 	/* transparency check */
 	int result = 0;
@@ -92,7 +101,6 @@ int main(int argc, char** argv) {
 	}
 	
 	free(image);
-	free(buf);
 	
 	return result;
 }
