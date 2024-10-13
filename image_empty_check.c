@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #ifndef NO_WEBP
 #include <webp/decode.h>
 #endif
