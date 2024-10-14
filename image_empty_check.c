@@ -2,6 +2,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include <string.h> // Include string.h for memcmp
 #ifndef NO_WEBP
 #include <webp/decode.h>
 #endif
@@ -18,8 +20,8 @@
 #define MAX_IMAGE_SIZE 134217728
 #endif
 
-#define SIG_PNG (*(uint32_t*)"\x89PNG")
-#define SIG_WEBP (*(uint32_t*)"RIFF")
+#define SIG_PNG "\x89PNG\r\n\x1A\n"  // Full PNG signature (8 bytes)
+#define SIG_WEBP "RIFF"
 
 int main(int argc, char** argv) {
 	/* read input */
@@ -50,11 +52,10 @@ int main(int argc, char** argv) {
 	
 	
 	/* Render */
-	uint32_t sig = *(uint32_t*)buf;
 	int width, height;
 	uint8_t* image = NULL;
 #ifndef NO_PNG
-	if(sig == SIG_PNG) {
+	if(memcmp(buf, SIG_PNG, 8) == 0) {
 		png_image png;
 		png.version = PNG_IMAGE_VERSION;
 		png.opaque = NULL;
@@ -89,7 +90,7 @@ int main(int argc, char** argv) {
 	} else
 #endif
 #ifndef NO_WEBP
-	if(sig == SIG_WEBP) {
+	if(memcmp(buf, SIG_WEBP, 4) == 0) {
 		WebPBitstreamFeatures webp;
 		if(WebPGetFeatures(buf, size, &webp) != VP8_STATUS_OK) {
 			free(buf);
@@ -114,7 +115,7 @@ int main(int argc, char** argv) {
 	if(!image)
 		ERROR("Failed to render supplied file\n");
 	
-	/* transparency check */
+	/* Transparency check */
 	int result = 0;
 	long i = width * height * 4;
 	while(i) {
